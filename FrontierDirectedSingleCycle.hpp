@@ -1,5 +1,5 @@
-#ifndef FRONTIER_SINGLE_CYCLE_HPP
-#define FRONTIER_SINGLE_CYCLE_HPP
+#ifndef FRONTIER_DIRECTED_SINGLE_CYCLE_HPP
+#define FRONTIER_DIRECTED_SINGLE_CYCLE_HPP
 
 #include <climits>
 #include <vector>
@@ -11,14 +11,16 @@
 using namespace tdzdd;
 
 // data associated with each vertex on the frontier
-class FrontierData {
+class DirectedFrontierData {
  public:
-  short deg;
+  short indeg;
+  short outdeg;
   short comp;
 };
 
-class FrontierSingleCycleSpec
-    : public tdzdd::PodArrayDdSpec<FrontierSingleCycleSpec, FrontierData, 2> {
+class FrontierDirectedSingleCycleSpec
+    : public tdzdd::PodArrayDdSpec<FrontierDirectedSingleCycleSpec,
+                                   DirectedFrontierData, 2> {
  private:
   // input graph
   const tdzdd::Graph& graph_;
@@ -30,34 +32,43 @@ class FrontierSingleCycleSpec
   const FrontierManager fm_;
 
   // This function gets deg of v.
-  short getDeg(FrontierData* data, short v) const {
-    return data[fm_.vertexToPos(v)].deg;
+  short getIndeg(DirectedFrontierData* data, short v) const {
+    return data[fm_.vertexToPos(v)].indeg;
+  }
+
+  short getOutdeg(DirectedFrontierData* data, short v) const {
+    return data[fm_.vertexToPos(v)].outdeg;
   }
 
   // This function sets deg of v to be d.
-  void setDeg(FrontierData* data, short v, short d) const {
-    data[fm_.vertexToPos(v)].deg = d;
+  void setIndeg(DirectedFrontierData* data, short v, short d) const {
+    data[fm_.vertexToPos(v)].indeg = d;
+  }
+
+  void setOutdeg(DirectedFrontierData* data, short v, short d) const {
+    data[fm_.vertexToPos(v)].outdeg = d;
   }
 
   // This function gets comp of v.
-  short getComp(FrontierData* data, short v) const {
+  short getComp(DirectedFrontierData* data, short v) const {
     return data[fm_.vertexToPos(v)].comp;
   }
 
   // This function sets comp of v to be c.
-  void setComp(FrontierData* data, short v, short c) const {
+  void setComp(DirectedFrontierData* data, short v, short c) const {
     data[fm_.vertexToPos(v)].comp = c;
   }
 
-  void initializeDegComp(FrontierData* data) const {
+  void initializeDegComp(DirectedFrontierData* data) const {
     for (int i = 0; i < fm_.getMaxFrontierSize(); ++i) {
-      data[i].deg = 0;
+      data[i].indeg = 0;
+      data[i].outdeg = 0;
       data[i].comp = 0;
     }
   }
 
  public:
-  FrontierSingleCycleSpec(const tdzdd::Graph& graph)
+  FrontierDirectedSingleCycleSpec(const tdzdd::Graph& graph)
       : graph_(graph),
         n_(static_cast<short>(graph_.vertexSize())),
         m_(graph_.edgeSize()),
@@ -70,12 +81,12 @@ class FrontierSingleCycleSpec
     setArraySize(fm_.getMaxFrontierSize());
   }
 
-  int getRoot(FrontierData* data) const {
+  int getRoot(DirectedFrontierData* data) const {
     initializeDegComp(data);
     return m_;
   }
 
-  int getChild(FrontierData* data, int level, int value) const {
+  int getChild(DirectedFrontierData* data, int level, int value) const {
     assert(1 <= level && level <= m_);
 
     // edge index (starting from 0)
@@ -89,7 +100,8 @@ class FrontierSingleCycleSpec
     for (size_t i = 0; i < entering_vs.size(); ++i) {
       int v = entering_vs[i];
       // initially the value of deg is 0
-      setDeg(data, v, 0);
+      setIndeg(data, v, 0);
+      setOutdeg(data, v, 0);
       // initially the value of comp is the vertex number itself
       setComp(data, v, v);
     }
@@ -99,8 +111,14 @@ class FrontierSingleCycleSpec
 
     if (value == 1) {  // if we take the edge (go to 1-arc)
       // increment deg of v1 and v2 (recall that edge = {v1, v2})
-      setDeg(data, edge.v1, getDeg(data, edge.v1) + 1);
-      setDeg(data, edge.v2, getDeg(data, edge.v2) + 1);
+      // 評価順序怪しそう?
+      auto outdeg1 = getOutdeg(data, edge.v1);
+      auto indeg2 = getIndeg(data, edge.v2);
+      //setIndeg(data, edge.v1, indeg1 + 1);
+      setIndeg(data, edge.v2, indeg2 + 1);
+
+      setOutdeg(data, edge.v1, outdeg1 + 1);
+      //setOutdeg(data, edge.v2, outdeg2 + 1);
 
       short c1 = getComp(data, edge.v1);
       short c2 = getComp(data, edge.v2);
@@ -124,7 +142,10 @@ class FrontierSingleCycleSpec
       int v = leaving_vs[i];
 
       // The degree of v must be 0 or 2.
-      if (getDeg(data, v) != 0 && getDeg(data, v) != 2) {
+      // in/out = 0/0 or 1/1
+      bool ok = (getIndeg(data, v) == 0 && getOutdeg(data, v) == 0) ||
+                (getIndeg(data, v) == 1 && getOutdeg(data, v) == 1);
+      if (!ok) {
         return 0;
       }
 
@@ -156,7 +177,8 @@ class FrontierSingleCycleSpec
           samecomp_found = true;
         }
         // The degree of w is at least 1.
-        if (getDeg(data, w) > 0) {
+        // 怪しい
+        if (getIndeg(data, w) > 0 || getOutdeg(data, w) > 0) {
           nonisolated_found = true;
         }
         if (nonisolated_found && samecomp_found) {
@@ -168,11 +190,12 @@ class FrontierSingleCycleSpec
       // of v becomes determined.
       if (!samecomp_found) {
         // Here, deg of v is 0 or 2.
-        assert(getDeg(data, v) == 0 || getDeg(data, v) == 2);
+        assert((getIndeg(data, v) == 0 && getOutdeg(data, v) == 0) ||
+               (getIndeg(data, v) == 1 && getOutdeg(data, v) == 1));
 
         // Check whether v is isolated.
         // If v is isolated (deg of v is 0), nothing occurs.
-        if (getDeg(data, v) > 0) {
+        if (getIndeg(data, v) > 0 || getOutdeg(data, v) > 0) {
           // Check whether there is a
           // connected component other than that of v,
           // that is, the generated subgraph is not connected.
@@ -188,7 +211,8 @@ class FrontierSingleCycleSpec
       }
       // Since deg and comp of v are never used until the end,
       // we erase the values.
-      setDeg(data, v, -1);
+      setIndeg(data, v, -1);
+      setOutdeg(data, v, -1);
       setComp(data, v, -1);
     }
     if (level == 1) {
@@ -200,4 +224,4 @@ class FrontierSingleCycleSpec
   }
 };
 
-#endif  // FRONTIER_SINGLE_CYCLE_HPP
+#endif  // FRONTIER_DIRECTED_SINGLE_CYCLE_HPP

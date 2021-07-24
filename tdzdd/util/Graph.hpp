@@ -295,7 +295,7 @@ public:
             if (name2edge.count(e) == 0) {
                 edge2name.push_back(e);
                 name2edge[e] = -1;
-                name2edge[std::make_pair(e.second, e.first)] = -1;
+                //name2edge[std::make_pair(e.second, e.first)] = -1;
             }
         }
 
@@ -336,9 +336,9 @@ public:
             std::string s1 = e.first;
             std::string s2 = e.second;
 
-            if (name2vertex[s1] > name2vertex[s2]) {
-                std::swap(s1, s2);
-            }
+            //if (name2vertex[s1] > name2vertex[s2]) {
+            //    std::swap(s1, s2);
+            //}
 
             VertexNumber v1 = name2vertex[s1];
             VertexNumber v2 = name2vertex[s2];

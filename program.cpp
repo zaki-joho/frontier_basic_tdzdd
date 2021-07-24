@@ -69,6 +69,7 @@ int main(int argc, char** argv) {
         bool is_path = false;
         bool is_ham_path = false;
         bool is_cycle = false;
+        bool is_cycle_directed = false;
         bool is_ham_cycle = false;
         bool is_path_m = false;
         bool is_ham_path_m = false;
@@ -95,6 +96,8 @@ int main(int argc, char** argv) {
             } else if (std::string(argv[i]) == std::string("--cycle") ||
                        std::string(argv[i]) == std::string("--letter_O")) {
                 is_cycle = true;
+            } else if (std::string(argv[i]) == std::string("--dcycle")){
+                is_cycle_directed = true;
             } else if (std::string(argv[i]) == std::string("--hamcycle")) {
                 is_ham_cycle = true;
             } else if (std::string(argv[i]) == std::string("--path_m")) {
@@ -163,6 +166,9 @@ int main(int argc, char** argv) {
             dd = DdStructure<2>(spec);
         } else if (is_cycle) {
             FrontierSingleCycleSpec spec(graph);
+            dd = DdStructure<2>(spec);
+        } else if (is_cycle_directed) {
+            FrontierDirectedSingleCycleSpec spec(graph);
             dd = DdStructure<2>(spec);
         } else if (is_ham_cycle) {
             FrontierSingleHamiltonianCycleSpec spec(graph);
