@@ -19,6 +19,7 @@ using namespace tdzdd;
 #include "FrontierMatching.hpp"
 #include "FrontierMate.hpp"
 #include "FrontierDegreeSpecified.hpp"
+#include "FrontierDirectedSingleCycle.hpp"
 
 std::string getVertex(int i, int j) {
     std::ostringstream oss;
@@ -218,6 +219,17 @@ int main(int argc, char** argv) {
 
         if (is_dot) {
             dd.dumpDot(std::cout);
+        }
+
+        auto dump_set = [&](std::set<int> st){
+            for(auto v:st){
+                std::cout << graph.edgeSize() - v + 1 << " ";
+            }
+            std::cout << '\n';
+        };
+        for(auto itr = dd.begin();itr != dd.end();++itr){
+            auto itemset = *itr;
+            dump_set(itemset);
         }
     }
 
